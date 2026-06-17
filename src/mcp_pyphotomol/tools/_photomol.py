@@ -1,8 +1,10 @@
 
+import json
 import os
 import glob
 import pandas as pd
 import numpy as np
+import json
 
 from io import StringIO
 
@@ -797,10 +799,66 @@ def plot_histograms(colors_hist:  list[str] | str | None = None ,
     else:
         return "Histogram plot created successfully, but no valid image format was specified for saving."
 
+@tool_with_log()
+def guess_peaks(
+    min_height: float = 10,
+    min_distance: float = 4,
+    prominence: float = 4,
+    calibrator: bool = False,
+    experiment: str = 'all'
+) -> str:
+    """
+    Automatically detect histogram peaks.
+
+    Parameters
+    ----------
+    min_height : float
+        The minimum height of the peaks to be detected.
+    min_distance : float
+        The minimum distance between peaks to be detected.
+    prominence : float
+        The prominence of the peaks to be detected.
+    calibrator : bool
+        If True, the peak detection will be performed on the MP_CALIBRATOR instance instead of the MP_ANALYZER instance.
+    experiment : str
+        The name of the experiment to perform peak detection on.
+        If 'all', peak detection will be performed on all experiments.
+    
+    Returns
+    -------
+    str
+        JSON string with peak positions for each experiment.
+    """
+
+    py_object = MP_CALIBRATOR if calibrator else MP_ANALYZER
+
+    results = {}
+
+    for model_name in py_object.models:
+
+        if experiment != 'all' and model_name != experiment:
+            continue
+
+        model = py_object.models[model_name]
+
+        if model.hist_counts is None:
+            raise ValueError(
+                f"Histogram for model {model_name} has not been created."
+            )
+
+        model.guess_peaks(
+            min_height=min_height,
+            min_distance=min_distance,
+            prominence=prominence
+        )
+
+        results[model_name] = model.peaks_guess.tolist()
+
+    return json.dumps(results)
 
 @tool_with_log()
 def fit_multi_gaussian(
-    peaks_guess: list[float] | None = None,
+    peaks_guess: list[float] | dict[str, list[float]] | None = None,
     mean_tolerance: float | None = None,
     std_tolerance: float | None = None,
     threshold: float | None = None,
@@ -818,7 +876,6 @@ def fit_multi_gaussian(
     ----------
     peaks_guess : list[float] | None
         A list of initial guesses for the peaks of the gaussians.
-        If None, the peaks will be automatically detected.
     mean_tolerance : float | None
         The tolerance for the mean of the gaussians.
         If None, defaults will be applied: guess ± abs(guess)/2
@@ -870,8 +927,10 @@ def fit_multi_gaussian(
     assert isinstance(min_distance, (int, float))
     assert isinstance(prominence, (int, float))
 
-    if peaks_guess is not None:
-        assert all(isinstance(x, (int, float)) for x in peaks_guess)
+    assert isinstance(
+        peaks_guess,
+        (list, dict, type(None))
+    )
 
     for model_name in list(py_object.models.keys()):
 
@@ -887,19 +946,38 @@ def fit_multi_gaussian(
             message = f"Histogram for model {model_name} has not been created. Please run `create_histogram()` first."
             raise ValueError(message)
 
-        # If peaks_guess is None, use the default values
+        # Determine which peaks to use
         if peaks_guess is None:
 
-            model.guess_peaks(
-                min_height=min_height,
-                min_distance=min_distance,
-                prominence=prominence
-            )
+            if not hasattr(model, "peaks_guess"):
+                raise ValueError(
+                    f"No peaks available for model {model_name}. "
+                    "Run guess_peaks() first or provide peaks_guess."
+                )
 
-            peaks_guess = model.peaks_guess
+            if model.peaks_guess is None:
+                raise ValueError(
+                    f"No peaks available for model {model_name}. "
+                    "Run guess_peaks() first or provide peaks_guess."
+                )
+
+            peaks_guess_local = model.peaks_guess
+
+        elif isinstance(peaks_guess, dict):
+
+            if model_name not in peaks_guess:
+                raise ValueError(
+                    f"No peaks provided for experiment '{model_name}'."
+                )
+
+            peaks_guess_local = peaks_guess[model_name]
+
+        else:
+
+            peaks_guess_local = peaks_guess
 
         model.fit_histogram(
-            peaks_guess=peaks_guess,
+            peaks_guess=peaks_guess_local,
             mean_tolerance=mean_tolerance,
             std_tolerance=std_tolerance,
             threshold=threshold,
