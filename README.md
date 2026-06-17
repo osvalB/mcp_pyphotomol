@@ -9,6 +9,10 @@
 
 Analysis of mass photometry data
 
+## Video demonstration
+
+Watch a demonstration of the MCP server in action: [Video Demo](https://drive.google.com/drive/search?q=mcp).
+
 ## Getting started
 
 Please refer to the [documentation][],
