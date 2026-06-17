@@ -3,7 +3,10 @@
 
 # mcp_pyphotomol
 
+<!--
 [![BioContextAI - Registry](https://img.shields.io/badge/Registry-package?style=flat&label=BioContextAI&labelColor=%23fff&color=%233555a1&link=https%3A%2F%2Fbiocontext.ai%2Fregistry)](https://biocontext.ai/registry)
+-->
+
 [![Tests][badge-tests]][tests]
 [![Documentation][badge-docs]][documentation]
 
@@ -14,14 +17,11 @@ Analysis of mass photometry data
 
 ## Video demonstration
 
-Watch a demonstration of the MCP server in action: [Video Demo](https://drive.google.com/drive/search?q=mcp).
+Watch a demonstration of the MCP server in action: [Video Demo](https://drive.google.com/file/d/1NQNWErh1wtd1XFVcd_Lsf-STHb5QfaaC/view?usp=share_link).
 
 ## Getting started
 
-Please refer to the [documentation][],
-in particular, the [API documentation][].
-
-You can also find the project on [BioContextAI](https://biocontext.ai), the community-hub for biomedical MCP servers: [mcp_pyphotomol on BioContextAI](https://biocontext.ai/registry/osvalB/mcp_pyphotomol).
+Please refer to the [documentation]
 
 ## Installation
 
@@ -118,11 +118,11 @@ If you found a bug, please use the [issue tracker][].
 
 ## Citation
 
-> t.b.a
+Osvaldo Burastero,
 
 [uv]: https://github.com/astral-sh/uv
 [issue tracker]: https://github.com/osvalB/mcp_pyphotomol/issues
 [tests]: https://github.com/osvalB/mcp_pyphotomol/actions/workflows/test.yaml
-[documentation]: https://github.com/osvalB/mcp_pyphotomol/tree/main/docs
+[documentation]: https://osvalb.github.io/pyphotomol
 [api documentation]: https://github.com/osvalB/mcp_pyphotomol/blob/main/docs/modules.rst
 [pypi]: https://pypi.org/project/mcp_pyphotomol
