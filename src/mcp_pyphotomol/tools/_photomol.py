@@ -234,7 +234,7 @@ def load_example_data_for_calibration() -> str:
 
     """
     Load example data (contrasts) in the MP_CALIBRATOR instance.
-    As a a result, the MP_CALIBRATOR will have two MP files. 
+    As a result, the MP_CALIBRATOR will have two MP files. 
     One file with one peak, and another file with two peaks.
 
     We recommend running the tool 'calibrate' afterwards with the following parameters:
@@ -321,7 +321,8 @@ def import_folder(folder_path: Path, pattern: str = '', calibrator: bool = False
         return f"{len(files)} files were imported successfully from {folder_path}."
     else:
         return f"Data import failed for {folder_path}."
-    
+
+# This function an internal helper and therefore is not decorated with @tool_with_log() because it is not meant to be called directly by the user     
 def create_histogram(min_value: float | None = None, 
                      max_value: float | None = None, 
                      bin_width: float | None = None, 
@@ -463,7 +464,7 @@ def create_histogram_manual(
         If True, the histogram will be created using mass values.
     calibrator : bool
         If True, the histogram will be created for the MP_CALIBRATOR instance
-        IF False, the histogram will be created for the MP_ANALYZER instance.
+        If False, the histogram will be created for the MP_ANALYZER instance.
 
     Returns
     -------
@@ -506,7 +507,7 @@ def create_histogram_automatic(
         If True, the histogram will be created using mass values.
     calibrator : bool
         If True, the histogram will be created for the MP_CALIBRATOR instance
-        IF False, the histogram will be created for the MP_ANALYZER instance.
+        If False, the histogram will be created for the MP_ANALYZER instance.
 
     Returns
     -------
@@ -828,6 +829,9 @@ def fit_multi_gaussian(
         For masses: minimum value that can be observed (in kDa units). Default is 40.
         For contrasts: maximum value that can be observed (should be negative). Default is -0.0024.
         If None, defaults are applied based on detected data type.
+    fit_baseline : bool
+        If True, a baseline will be fitted and subtracted from the histograms before fitting the gaussians.
+        The baseline argument will be ignored in this case.
     baseline : float
         The baseline value to be subtracted from the histograms before fitting.
         Useful to remove background noise.
@@ -984,7 +988,7 @@ def plot_histograms_and_fits(
 ) -> str:
 
     """
-    Plot the histograms and fitted curves using the current plottig configuration.
+    Plot the histograms and fitted curves using the current plotting configuration.
     The plotting configuration is defined by the PLOT_CONFIG, LEGEND_CONFIG, LAYOUT_CONFIG, and AXIS_CONFIG.
     To update use the tools `update_plot_config`, `update_legend_config`, `update_layout_config`, and `update_axis_config`.
 
