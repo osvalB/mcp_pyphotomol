@@ -35,6 +35,15 @@ If you don't have Python installed, we recommend installing [uv][].
 uvx mcp_pyphotomol
 ```
 
+By default, plots and log files are saved in
+`~/user_data_mcp_pyphotomol/<YYYY-MM-DD>/`. To choose a different results
+folder, set `PPM_RESULTS_DIR` before starting the server. This folder is
+where results are stored; each server run writes into a date-stamped subfolder.
+
+```bash
+PPM_RESULTS_DIR=~/Documents/user_data_mcp_pyphotomol uvx mcp_pyphotomol
+```
+
 ### Configure an MCP client
 
 Add the server to any MCP-compatible client that supports the `mcpServers`
@@ -45,7 +54,10 @@ configuration format:
   "mcpServers": {
     "mcp_pyphotomol": {
       "command": "uvx",
-      "args": ["mcp_pyphotomol"]
+      "args": ["mcp_pyphotomol"],
+      "env": {
+        "PPM_RESULTS_DIR": "/absolute/path/to/results-folder"
+      }
     }
   }
 }
@@ -53,6 +65,32 @@ configuration format:
 
 After updating the configuration, restart the MCP client so it can launch the
 server.
+
+#### Claude Desktop
+
+In Claude Desktop, open **Settings**, go to **Developer**, and click
+**Edit Config**. Add `mcp_pyphotomol` to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "mcp_pyphotomol": {
+      "command": "uvx",
+      "args": ["mcp_pyphotomol"],
+      "env": {
+        "PPM_RESULTS_DIR": "/Users/your-name/Documents/user_data_mcp_pyphotomol"
+      }
+    }
+  }
+}
+```
+
+Claude Desktop stores this file at:
+
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+Save the file, then fully quit and reopen Claude Desktop.
 
 ### Local development
 
@@ -101,6 +139,12 @@ mcp_pyphotomol
 
 If your shell cannot find the command, make sure your user-level Python scripts
 directory is on `PATH`.
+
+You can use the same output-folder setting when running the installed command:
+
+```bash
+PPM_RESULTS_DIR=~/Documents/user_data_mcp_pyphotomol mcp_pyphotomol
+```
 
 ## Contact
 

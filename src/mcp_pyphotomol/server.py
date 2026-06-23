@@ -4,6 +4,8 @@ from pathlib import Path
 from fastmcp import FastMCP
 import pyphotomol
 
+from mcp_pyphotomol.paths import get_user_data_root
+
 SKIP_USER_DATA_INIT = os.environ.get("MCP_PYPHOTOMOL_SKIP_USER_DATA_INIT") == "1"
 
 # Instance to handle the mass photometry count data
@@ -22,7 +24,7 @@ AXIS_CONFIG = pyphotomol.AxisConfig()
 
 # Define the paths to the project data directories.
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = str(PROJECT_ROOT / 'user_data')
+DATA_DIR = str(get_user_data_root())
 EXAMPLE_DATA_DIR = str(PROJECT_ROOT / 'example_data')
 
 # Create the data directory if it doesn't exist.

@@ -17,6 +17,7 @@ from fastmcp import Client
 from fastmcp.exceptions import ToolError
 
 import mcp_pyphotomol
+from mcp_pyphotomol.paths import RESULTS_DIR_ENV_VAR, USER_DATA_DIR_NAME, get_user_data_root
 import mcp_pyphotomol.server as photomol_server
 import mcp_pyphotomol.tools._photomol as photomol_tools
 from mcp_pyphotomol.main import run_app
@@ -73,6 +74,19 @@ class AsyncTextSink:
 def test_package_has_version():
     """Verify the package exposes distribution metadata through ``__version__``."""
     assert mcp_pyphotomol.__version__ is not None
+
+
+def test_user_data_root_defaults_to_home(monkeypatch):
+    """Verify default user data is written outside the installed package tree."""
+    monkeypatch.delenv(RESULTS_DIR_ENV_VAR, raising=False)
+    assert get_user_data_root() == Path.home() / USER_DATA_DIR_NAME
+
+
+def test_user_data_root_uses_configured_results_dir(monkeypatch, tmp_path):
+    """Verify users can choose the folder for MCP output files."""
+    results_dir = tmp_path / "results"
+    monkeypatch.setenv(RESULTS_DIR_ENV_VAR, str(results_dir))
+    assert get_user_data_root() == results_dir
 
 
 def test_example_data_files_are_present():
@@ -651,7 +665,7 @@ def test_server_initializes_user_data_when_not_skipped():
         ):
             namespace = runpy.run_path(Path(photomol_server.__file__))
 
-    assert any(path.endswith("user_data") for path in created_dirs)
+    assert any(path.endswith(USER_DATA_DIR_NAME) for path in created_dirs)
     assert any(path.endswith(namespace["today"]) for path in created_dirs)
     assert "MCP Logbook" in written.getvalue()
     assert f"Date: {namespace['today']}" in written.getvalue()
