@@ -154,14 +154,14 @@ If you found a bug, please use the [issue tracker][].
 
 If you use `mcp_pyphotomol`, please cite it as:
 
-Burastero, O. (2026). `mcp_pyphotomol` (Version 1.0.0) [Computer software].
+Burastero, O. (2026). `mcp_pyphotomol` (Version 1.0) [Computer software].
 GitHub. https://github.com/osvalB/mcp_pyphotomol
 
 ```bibtex
 @software{burastero_2026_mcp_pyphotomol,
   author = {Burastero, Osvaldo},
   title = {mcp_pyphotomol},
-  version = {1.0.0},
+  version = {1.0},
   year = {2026},
   url = {https://github.com/osvalB/mcp_pyphotomol}
 }
