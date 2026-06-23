@@ -26,7 +26,7 @@ Please refer to the [documentation]
 
 ## Installation
 
-You need to have Python 3.11 or newer installed on your system.
+You need to have Python 3.12 or newer installed on your system.
 If you don't have Python installed, we recommend installing [uv][].
 
 ### Run from the command line
