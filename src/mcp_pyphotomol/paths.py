@@ -3,7 +3,7 @@ from pathlib import Path
 
 
 USER_DATA_DIR_NAME = "user_data_mcp_pyphotomol"
-RESULTS_DIR_ENV_VAR = "PPM_RESULTS_DIR"
+RESULTS_DIR_ENV_VAR = "RESULTS_DIR"
 
 
 def get_user_data_root() -> Path:
