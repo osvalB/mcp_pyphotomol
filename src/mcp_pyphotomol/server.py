@@ -50,10 +50,15 @@ if not SKIP_USER_DATA_INIT and not os.path.exists(logbook_file):
         f.write("MCP function calls will be added here.\n")
 
 
+SERVER_INSTRUCTIONS = f"""This server provides tools for analysing mass photometry count data.
+You can import data, create and fit histograms with a multi-gaussian model,
+and plot the results.
+There are two important instances: MP_ANALYZER for analysis and MP_CALIBRATOR for calibration.
+Plots and log files for this session are saved in: {DATA_DIR}"""
+
+
 # This is the shared MCP server instance
 mcp = FastMCP(
     name="mcp_server_photomol",
-    instructions="This server provides tools for analysing mass photometry count data. \
-You can import data, create and fit histograms with a multi-gaussian model, \
-and plot the results.  \
-There are two important instances: MP_ANALYZER for analysis and MP_CALIBRATOR for calibration.")
+    instructions=SERVER_INSTRUCTIONS,
+)

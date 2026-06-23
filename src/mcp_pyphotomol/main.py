@@ -57,9 +57,11 @@ def run_app(
     logger = logging.getLogger(__name__)
 
     from mcp_pyphotomol.mcp import mcp
+    from mcp_pyphotomol.server import DATA_DIR
 
     if environment == EnvironmentType.DEVELOPMENT:
         logger.info("Starting MCP server (DEVELOPMENT mode)")
+        click.echo(f"mcp_pyphotomol results folder: {DATA_DIR}", err=True)
         if transport == "http":
             mcp.run(transport=transport, port=port, host=hostname)
         elif transport == "stdio":

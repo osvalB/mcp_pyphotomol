@@ -89,6 +89,12 @@ def test_user_data_root_uses_configured_results_dir(monkeypatch, tmp_path):
     assert get_user_data_root() == results_dir
 
 
+def test_server_instructions_show_current_data_folder():
+    """Verify MCP clients can see where results are saved at initialization."""
+    assert photomol_server.DATA_DIR in photomol_server.SERVER_INSTRUCTIONS
+    assert "Plots and log files for this session are saved in:" in photomol_server.SERVER_INSTRUCTIONS
+
+
 def test_example_data_files_are_present():
     """Verify the bundled CSV and notebook fixtures needed by integration tests exist."""
     files = {path.name for path in EXAMPLE_DATA_DIR.glob("*.csv")}
@@ -595,14 +601,17 @@ def test_cli_version_and_transports():
         result = runner.invoke(run_app, [])
         assert result.exit_code == 0
         assert calls[-1] == {"transport": "stdio"}
+        assert f"mcp_pyphotomol results folder: {photomol_server.DATA_DIR}" in result.stderr
 
         result = runner.invoke(run_app, ["--transport", "http", "--port", "9999", "--host", "127.0.0.1"])
         assert result.exit_code == 0
         assert calls[-1] == {"transport": "http", "port": 9999, "host": "127.0.0.1"}
+        assert f"mcp_pyphotomol results folder: {photomol_server.DATA_DIR}" in result.stderr
 
         result = runner.invoke(run_app, ["--transport", "sse"])
         assert result.exit_code == 0
         assert calls[-1] == {"transport": "sse"}
+        assert f"mcp_pyphotomol results folder: {photomol_server.DATA_DIR}" in result.stderr
 
         result = runner.invoke(run_app, ["--env", "production"])
         assert result.exit_code == 1
