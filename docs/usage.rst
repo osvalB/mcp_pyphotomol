@@ -5,13 +5,13 @@ Video Demonstration
 -------------------
 
 A demonstration of the MCP server is available here:
-`Video Demo <https://drive.google.com/drive/search?q=mcp>`__.
+`Video Demo <https://drive.google.com/file/d/1NQNWErh1wtd1XFVcd_Lsf-STHb5QfaaC/view?usp=share_link>`__.
 
 Common MCP Configuration
 ------------------------
 
 MCP clients that support an ``mcp.json`` configuration can start
-``mcp_pyphotomol`` with ``uvx`` after the package is published:
+``mcp_pyphotomol`` with ``uvx``:
 
 .. code-block:: json
 
@@ -19,12 +19,22 @@ MCP clients that support an ``mcp.json`` configuration can start
      "mcpServers": {
        "mcp_pyphotomol": {
          "command": "uvx",
-         "args": ["mcp_pyphotomol"]
+         "args": ["mcp_pyphotomol"],
+         "env": {
+           "RESULTS_DIR": "/absolute/path/to/results-folder"
+         }
        }
      }
    }
 
-To run the server directly from GitHub:
+``RESULTS_DIR`` is the folder where plots and log files are stored. The server
+creates a date-stamped subfolder inside it for each run.
+
+Claude Desktop
+--------------
+
+In Claude Desktop, open **Settings**, go to **Developer**, and click
+**Edit Config**. Add ``mcp_pyphotomol`` to ``claude_desktop_config.json``:
 
 .. code-block:: json
 
@@ -32,10 +42,20 @@ To run the server directly from GitHub:
      "mcpServers": {
        "mcp_pyphotomol": {
          "command": "uvx",
-         "args": ["git+https://github.com/osvalB/mcp_pyphotomol.git@main"]
+         "args": ["mcp_pyphotomol"],
+         "env": {
+           "RESULTS_DIR": "/Users/your-name/Documents/user_data_mcp_pyphotomol"
+         }
        }
      }
    }
+
+Claude Desktop stores this file at:
+
+- macOS: ``~/Library/Application Support/Claude/claude_desktop_config.json``
+- Windows: ``%APPDATA%\Claude\claude_desktop_config.json``
+
+Save the file, then fully quit and reopen Claude Desktop.
 
 For local development, point the client at the repository checkout:
 
@@ -44,10 +64,10 @@ For local development, point the client at the repository checkout:
    {
      "mcpServers": {
        "mcp_pyphotomol": {
-         "command": "uv",
+         "command": "uvx",
          "args": [
-           "run",
-           "--directory",
+           "--refresh",
+           "--from",
            "/absolute/path/to/mcp_pyphotomol",
            "mcp_pyphotomol"
          ]
@@ -55,17 +75,19 @@ For local development, point the client at the repository checkout:
      }
    }
 
-Claude Desktop
---------------
+If you want to reuse the checkout's existing environment, run it through
+``uv``:
 
-1. Download the `Claude desktop app <https://claude.ai/download>`__.
-2. Edit the Claude Desktop configuration file. On Linux this is commonly
-   ``~/.config/Claude/claude_desktop_config.json``; on macOS it is commonly
-   ``~/Library/Application Support/Claude/claude_desktop_config.json``.
-3. Add ``mcp_pyphotomol`` to ``mcpServers`` using one of the configurations
-   above. Replace the local repository path with the path on your computer.
-4. Restart Claude Desktop and select the ``mcp_pyphotomol`` server from the
-   available MCP servers.
+.. code-block:: json
+
+   {
+     "mcpServers": {
+       "mcp_pyphotomol": {
+         "command": "uv",
+         "args": ["run", "--directory", "/absolute/path/to/mcp_pyphotomol", "mcp_pyphotomol"]
+       }
+     }
+   }
 
 ChatMCP Desktop
 ---------------
@@ -87,21 +109,18 @@ VS Code with GitHub Copilot
 1. Download and install `Visual Studio Code <https://code.visualstudio.com/>`__.
 2. `Set up GitHub Copilot in VS Code
    <https://code.visualstudio.com/docs/copilot/setup>`__.
-3. Edit the VS Code MCP configuration, commonly named ``mcp.json``. Replace
-   the path with the path to your local checkout:
+3. Edit the VS Code MCP configuration, commonly named ``mcp.json``:
 
 .. code-block:: json
 
    {
      "servers": {
        "mcp_pyphotomol": {
-         "command": "uv",
-         "args": [
-           "run",
-           "--directory",
-           "/absolute/path/to/mcp_pyphotomol",
-           "mcp_pyphotomol"
-         ]
+         "command": "uvx",
+         "args": ["mcp_pyphotomol"],
+         "env": {
+           "RESULTS_DIR": "/absolute/path/to/results-folder"
+         }
        }
      }
    }
