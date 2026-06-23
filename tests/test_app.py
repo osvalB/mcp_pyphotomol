@@ -17,12 +17,17 @@ from fastmcp import Client
 from fastmcp.exceptions import ToolError
 
 import mcp_pyphotomol
-from mcp_pyphotomol.paths import RESULTS_DIR_ENV_VAR, USER_DATA_DIR_NAME, get_user_data_root
+from mcp_pyphotomol.paths import (
+    RESULTS_DIR_ENV_VAR,
+    USER_DATA_DIR_NAME,
+    get_example_data_root,
+    get_user_data_root,
+)
 import mcp_pyphotomol.server as photomol_server
 import mcp_pyphotomol.tools._photomol as photomol_tools
 from mcp_pyphotomol.main import run_app
 
-EXAMPLE_DATA_DIR = Path(__file__).resolve().parents[1] / "example_data"
+EXAMPLE_DATA_DIR = get_example_data_root()
 MASS_EXAMPLE_FILES = {
     "masses_monomer_1nM.csv",
     "masses_monomer_2nM.csv",

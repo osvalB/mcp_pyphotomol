@@ -1,10 +1,9 @@
 import os
-from pathlib import Path
 
 from fastmcp import FastMCP
 import pyphotomol
 
-from mcp_pyphotomol.paths import get_user_data_root
+from mcp_pyphotomol.paths import get_example_data_root, get_user_data_root
 
 SKIP_USER_DATA_INIT = os.environ.get("MCP_PYPHOTOMOL_SKIP_USER_DATA_INIT") == "1"
 
@@ -23,9 +22,8 @@ AXIS_CONFIG = pyphotomol.AxisConfig()
 
 
 # Define the paths to the project data directories.
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = str(get_user_data_root())
-EXAMPLE_DATA_DIR = str(PROJECT_ROOT / 'example_data')
+EXAMPLE_DATA_DIR = str(get_example_data_root())
 
 # Create the data directory if it doesn't exist.
 if not SKIP_USER_DATA_INIT and not os.path.exists(DATA_DIR):
