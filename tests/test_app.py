@@ -6,6 +6,7 @@ import os
 import runpy
 import sys
 import warnings
+from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -43,21 +44,203 @@ EXPECTED_EXAMPLE_MODEL_NAMES = [
 ]
 
 
+class AsyncLineStream:
+    """Async iterator that feeds predetermined lines into stdio transport tests."""
+
+    def __init__(self, lines):
+        self._lines = iter(lines)
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            return next(self._lines)
+        except StopIteration:
+            raise StopAsyncIteration from None
+
+
+class AsyncTextSink:
+    """Async stdout sink used so stdio transport tests do not touch pytest capture."""
+
+    async def write(self, text):
+        return None
+
+    async def flush(self):
+        return None
+
+
 def test_package_has_version():
-    """Testing package version exist."""
+    """Verify the package exposes distribution metadata through ``__version__``."""
     assert mcp_pyphotomol.__version__ is not None
 
 
 def test_example_data_files_are_present():
-    """Testing example data fixtures exist."""
+    """Verify the bundled CSV and notebook fixtures needed by integration tests exist."""
     files = {path.name for path in EXAMPLE_DATA_DIR.glob("*.csv")}
     assert MASS_EXAMPLE_FILES | {CONTRAST_EXAMPLE_FILE} <= files
     assert (EXAMPLE_DATA_DIR / NOTEBOOK_DEMO_FILE).is_file()
 
 
 @pytest.mark.asyncio
+async def test_stdio_transport_ignores_blank_lines():
+    """
+    Verify blank stdio lines are filtered before JSON-RPC parsing.
+
+    The transport should deliver the first real JSON-RPC message instead of
+    turning an empty line into a stream exception.
+    """
+    from mcp_pyphotomol.stdio import stdio_server_ignoring_empty_lines
+
+    ping = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "ping"}) + "\n"
+    stdin = AsyncLineStream(["\n", "   \n", ping])
+
+    async with stdio_server_ignoring_empty_lines(
+        stdin=stdin,
+        stdout=AsyncTextSink(),
+    ) as (read_stream, write_stream):
+        received = await read_stream.receive()
+        await write_stream.aclose()
+        await read_stream.aclose()
+
+    assert not isinstance(received, Exception)
+    assert received.message.root.method == "ping"
+
+
+@pytest.mark.asyncio
+async def test_stdio_transport_defaults_to_process_stdin():
+    """
+    Verify the hardened stdio transport wraps process stdin by default.
+
+    The fake stdio server inspects the generated stdin iterator so this test can
+    check the filtering behavior without using the real process streams.
+    """
+    import mcp_pyphotomol.stdio as stdio_module
+
+    calls = {}
+    observed_lines = []
+
+    @asynccontextmanager
+    async def fake_stdio_server(stdin=None, stdout=None):
+        calls["stdin"] = stdin
+        calls["stdout"] = stdout
+        async for line in stdin:
+            observed_lines.append(line)
+            break
+        yield "read-stream", "write-stream"
+
+    with (
+        patch.object(stdio_module.sys, "stdin", SimpleNamespace(buffer="raw-stdin")),
+        patch.object(stdio_module, "TextIOWrapper", lambda buffer, encoding: f"{encoding}:{buffer}"),
+        patch.object(
+            stdio_module.anyio,
+            "wrap_file",
+            lambda stream: AsyncLineStream(["\n", '{"jsonrpc":"2.0","id":1,"method":"ping"}\n']),
+        ),
+        patch.object(stdio_module, "stdio_server", fake_stdio_server),
+    ):
+        async with stdio_module.stdio_server_ignoring_empty_lines():
+            pass
+
+    assert calls["stdout"] is None
+    assert hasattr(calls["stdin"], "__aiter__")
+    assert observed_lines[0].strip().startswith("{")
+
+
+@pytest.mark.asyncio
+async def test_run_stdio_ignoring_empty_lines_uses_hardened_transport():
+    """
+    Verify the hardened stdio runner wires its streams into FastMCP.
+
+    The fake low-level server records lifecycle calls only; it does not emulate
+    MCP behavior beyond confirming the runner passes initialized streams and
+    options to ``_mcp_server.run``.
+    """
+    import fastmcp.server.context as fastmcp_context
+    import fastmcp.utilities.cli as fastmcp_cli
+    import fastmcp.utilities.logging as fastmcp_logging
+    import mcp_pyphotomol.stdio as stdio_module
+
+    calls = []
+
+    @asynccontextmanager
+    async def fake_lifespan_manager():
+        calls.append("lifespan-entered")
+        yield
+
+    @asynccontextmanager
+    async def fake_stdio_server():
+        calls.append("stdio-entered")
+        yield "read-stream", "write-stream"
+
+    @contextmanager
+    def fake_temporary_log_level(log_level):
+        calls.append(("log-level", log_level))
+        yield
+
+    class FakeLowLevelServer:
+        """Minimal FastMCP low-level server stand-in for runner wiring checks."""
+
+        def create_initialization_options(self, **kwargs):
+            notification_options = kwargs["notification_options"]
+            calls.append(("init-options", notification_options.tools_changed))
+            return "init-options"
+
+        async def run(self, read_stream, write_stream, init_options, stateless=False):
+            assert read_stream
+            assert write_stream
+            assert init_options
+            calls.append(("run", stateless))
+
+    fake_server = SimpleNamespace(
+        name="fake-server",
+        _lifespan_manager=fake_lifespan_manager,
+        _mcp_server=FakeLowLevelServer(),
+    )
+
+    with (
+        patch.object(fastmcp_cli, "log_server_banner", lambda server: calls.append(("banner", server.name))),
+        patch.object(fastmcp_context, "set_transport", lambda transport: calls.append(("set", transport)) or "token"),
+        patch.object(fastmcp_context, "reset_transport", lambda token: calls.append(("reset", token))),
+        patch.object(fastmcp_logging, "temporary_log_level", fake_temporary_log_level),
+        patch.object(stdio_module, "stdio_server_ignoring_empty_lines", fake_stdio_server),
+    ):
+        await stdio_module.run_stdio_ignoring_empty_lines(
+            fake_server,
+            show_banner=True,
+            log_level="DEBUG",
+            stateless=True,
+        )
+
+    assert any(call[0] == "banner" for call in calls)
+    assert ("set", "stdio") in calls
+    assert ("log-level", "DEBUG") in calls
+    assert ("init-options", True) in calls
+    assert ("run", True) in calls
+    assert any(call[0] == "reset" for call in calls)
+
+
+def test_run_stdio_sync_wrapper_dispatches_anyio_run():
+    """Verify the synchronous stdio wrapper delegates execution to ``anyio.run``."""
+    import mcp_pyphotomol.stdio as stdio_module
+
+    calls = []
+
+    with patch.object(stdio_module.anyio, "run", lambda runner: calls.append(runner)):
+        stdio_module.run_stdio("server", stateless=True)
+
+    assert calls
+
+
+@pytest.mark.asyncio
 async def test_mcp_server_tools_with_example_data(isolated_tool_log_dir):
-    """Testing MCP server tools with the bundled example data."""
+    """
+    Exercise the public MCP tools against bundled example data.
+
+    This is a broad integration smoke test: it checks tool registration, import
+    workflows, histogram/fitting calls, plotting branches, calibration setup,
+    and that expected files are written to the isolated log directory.
+    """
     log_dir = isolated_tool_log_dir
 
     async with Client(mcp_pyphotomol.mcp) as client:
@@ -233,7 +416,13 @@ async def test_mcp_server_tools_with_example_data(isolated_tool_log_dir):
 
 @pytest.mark.asyncio
 async def test_mcp_results_match_simple_example_notebook(isolated_tool_log_dir):
-    """Testing MCP output matches the simple example notebook fit table."""
+    """
+    Compare fitted mass-photometry values against the simple example notebook.
+
+    This test uses the real ``demo.h5`` fixture and real fitting code, then
+    checks fitted positions, widths, counts, percentages, and amplitudes against
+    known expected values.
+    """
     async with Client(mcp_pyphotomol.mcp) as client:
         await client.call_tool("reset_analyzer", {})
         await client.call_tool(
@@ -285,7 +474,13 @@ async def test_mcp_results_match_simple_example_notebook(isolated_tool_log_dir):
 
 @pytest.mark.asyncio
 async def test_mcp_results_match_simple_calibration_notebook(isolated_tool_log_dir):
-    """Testing MCP output matches the simple calibration notebook."""
+    """
+    Compare calibration fitting output against the simple calibration notebook.
+
+    This test uses the real contrast CSV fixture, fits the calibration peaks,
+    runs ``calibrate``, and checks the resulting calibration parameters and R²
+    against known expected values.
+    """
     async with Client(mcp_pyphotomol.mcp) as client:
         await client.call_tool("reset_calibrator", {})
         await client.call_tool(
@@ -336,7 +531,12 @@ async def test_mcp_results_match_simple_calibration_notebook(isolated_tool_log_d
 
 @pytest.mark.asyncio
 async def test_mcp_logbook_resource(resource_data_root):
-    """Testing MCP logbook resource reads."""
+    """
+    Verify the logbook MCP resource resolves valid, empty, and malformed dates.
+
+    The fixture redirects the resource data root so the test controls the
+    available logbook files without reading user data from the real workspace.
+    """
     date_dir = resource_data_root / "2026-01-02"
     date_dir.mkdir()
     (date_dir / "mcp_logbook.json").write_text(json.dumps({"calls": [{"tool": "load_example_data"}]}))
@@ -355,7 +555,12 @@ async def test_mcp_logbook_resource(resource_data_root):
 
 
 def test_cli_version_and_transports():
-    """Testing CLI version and transport dispatch."""
+    """
+    Verify CLI version output and transport dispatch.
+
+    The MCP server runners are patched so the test can assert which transport
+    branch is selected without starting long-lived stdio or HTTP servers.
+    """
     runner = CliRunner()
     result = runner.invoke(run_app, ["--version"])
     assert result.exit_code == 0
@@ -363,8 +568,16 @@ def test_cli_version_and_transports():
 
     calls = []
     mcp_module = importlib.import_module("mcp_pyphotomol.mcp")
+    stdio_module = importlib.import_module("mcp_pyphotomol.stdio")
 
-    with patch.object(mcp_module.mcp, "run", lambda **kwargs: calls.append(kwargs)):
+    with (
+        patch.object(mcp_module.mcp, "run", lambda **kwargs: calls.append(kwargs)),
+        patch.object(
+            stdio_module,
+            "run_stdio",
+            lambda server: calls.append({"transport": "stdio"}),
+        ),
+    ):
         result = runner.invoke(run_app, [])
         assert result.exit_code == 0
         assert calls[-1] == {"transport": "stdio"}
@@ -373,13 +586,17 @@ def test_cli_version_and_transports():
         assert result.exit_code == 0
         assert calls[-1] == {"transport": "http", "port": 9999, "host": "127.0.0.1"}
 
+        result = runner.invoke(run_app, ["--transport", "sse"])
+        assert result.exit_code == 0
+        assert calls[-1] == {"transport": "sse"}
+
         result = runner.invoke(run_app, ["--env", "production"])
         assert result.exit_code == 1
         assert isinstance(result.exception, NotImplementedError)
 
 
 def test_module_entrypoints_print_version(capsys):
-    """Testing direct module entrypoint guards."""
+    """Verify package and module ``__main__`` entrypoints print the version."""
     with patch.object(sys, "argv", ["mcp_pyphotomol", "--version"]):
         with pytest.raises(SystemExit) as package_exit:
             runpy.run_path(Path(mcp_pyphotomol.__file__), run_name="__main__")
@@ -396,7 +613,12 @@ def test_module_entrypoints_print_version(capsys):
 
 
 def test_server_initializes_user_data_when_not_skipped():
-    """Testing user data initialization branches without writing to disk."""
+    """
+    Verify server import initializes user-data folders and logbook contents.
+
+    Filesystem calls are patched so the initialization branches run without
+    creating directories or writing files outside the in-memory test buffer.
+    """
     created_dirs = []
 
     class NoCloseStringIO(io.StringIO):
@@ -436,7 +658,13 @@ def test_server_initializes_user_data_when_not_skipped():
 
 
 def test_tool_failure_and_error_branches(isolated_tool_log_dir, tmp_path):
-    """Testing low-level tool failure and validation branches."""
+    """
+    Verify selected tool failure paths and validation errors.
+
+    The analyzer import methods and model dictionaries are patched to trigger
+    failure states directly, avoiding unnecessary fixture data processing while
+    still exercising the real tool functions.
+    """
     with (
         patch.object(photomol_tools.MP_ANALYZER, "models", {}),
         patch.object(photomol_tools.MP_ANALYZER, "import_files", lambda *args, **kwargs: None),
@@ -468,32 +696,102 @@ def test_tool_failure_and_error_branches(isolated_tool_log_dir, tmp_path):
             photomol_tools.create_histogram_automatic(use_masses=False)
 
 
-def test_auto_histogram_large_mass_bins(isolated_tool_log_dir):
-    """Testing automatic bin-width branches for larger mass ranges."""
-    class FakeAnalyzer:
-        def __init__(self, masses):
-            self.models = {"sample": SimpleNamespace(masses=masses, contrasts=None)}
-            self.calls = []
+def test_guess_peaks_branches(isolated_tool_log_dir):
+    """
+    Verify peak guessing success, experiment filtering, and missing histogram errors.
 
-        def apply_to_all(self, method_name, **kwargs):
-            self.calls.append((method_name, kwargs))
+    This uses real bundled mass CSV fixtures and the real pyphotomol analyzer so
+    the peak values come from actual histogram data. The assertions focus on
+    experiment filtering and the missing-histogram guard.
+    """
+    photomol_tools.reset_analyzer()
+    photomol_tools.import_single_file(EXAMPLE_DATA_DIR / "masses_monomer_1nM.csv", name="skipped")
+    photomol_tools.import_single_file(EXAMPLE_DATA_DIR / "masses_monomer_2nM.csv", name="selected")
+    photomol_tools.create_histogram_manual(min_value=0, max_value=300, bin_width=8)
 
-    medium = FakeAnalyzer([0, 600])
-    with patch.object(photomol_tools, "MP_ANALYZER", medium):
-        result = photomol_tools.create_histogram_automatic()
-        assert "Bin width: 10" in result
-        assert medium.calls[-1][1]["bin_width"] == 10
+    result = json.loads(
+        photomol_tools.guess_peaks(
+            min_height=2,
+            min_distance=3,
+            prominence=4,
+            experiment="selected",
+        )
+    )
 
-    large = FakeAnalyzer([0, 1500])
-    with patch.object(photomol_tools, "MP_ANALYZER", large):
-        result = photomol_tools.create_histogram_automatic()
-        assert "Bin width: 12" in result
-        assert large.calls[-1][1]["bin_width"] == 12
+    assert set(result) == {"selected"}
+    assert all(isinstance(value, float) for value in result["selected"])
+    assert photomol_tools.MP_ANALYZER.models["skipped"].peaks_guess is None
+    assert photomol_tools.MP_ANALYZER.models["selected"].peaks_guess is not None
+
+    photomol_tools.reset_analyzer()
+    photomol_tools.import_single_file(EXAMPLE_DATA_DIR / "masses_monomer_1nM.csv", name="missing")
+    with pytest.raises(ValueError, match="Histogram for model missing has not been created"):
+        photomol_tools.guess_peaks()
+
+
+def test_fit_multi_gaussian_error_and_dict_branches(isolated_tool_log_dir):
+    """
+    Verify fit error handling and dictionary-based peak guesses.
+
+    This uses the real ``demo.h5`` fixture for dictionary peak guesses. A single
+    real model method is monkeypatched to simulate the rare case where automatic
+    peak guessing leaves no usable peaks; numerical fit correctness is covered
+    by the notebook comparison tests.
+    """
+    photomol_tools.reset_analyzer()
+    photomol_tools.import_single_file(EXAMPLE_DATA_DIR / NOTEBOOK_DEMO_FILE, name="sample")
+    photomol_tools.create_histogram_manual(min_value=0, max_value=800, bin_width=10)
+    model = photomol_tools.MP_ANALYZER.models["sample"]
+    model.peaks_guess = None
+    with patch.object(model, "guess_peaks", lambda **kwargs: None):
+        with pytest.raises(ValueError, match="No peaks available for model sample"):
+            photomol_tools.fit_multi_gaussian()
+
+    with pytest.raises(ValueError, match="No peaks provided for experiment 'sample'"):
+        photomol_tools.fit_multi_gaussian(peaks_guess={"other": [65, 145, 465]})
+
+    result = photomol_tools.fit_multi_gaussian(
+        peaks_guess={"sample": [65, 145, 465]},
+        threshold=40,
+        fit_baseline=False,
+    )
+
+    assert result == "Multi-gaussian fitting completed successfully."
+    assert len(photomol_tools.MP_ANALYZER.models["sample"].fit_table) == 3
+
+
+def test_auto_histogram_large_mass_bins(isolated_tool_log_dir, tmp_path):
+    """
+    Verify automatic histogram bin-width choices for larger mass ranges.
+
+    Temporary CSV files provide controlled mass ranges while still going through
+    real import and histogram creation code.
+    """
+    medium = tmp_path / "medium.csv"
+    medium.write_text("masses_kDa\n0\n600\n")
+    photomol_tools.reset_analyzer()
+    photomol_tools.import_single_file(medium, name="medium")
+    result = photomol_tools.create_histogram_automatic()
+    assert "Bin width: 10" in result
+
+    large = tmp_path / "large.csv"
+    large.write_text("masses_kDa\n0\n1500\n")
+    photomol_tools.reset_analyzer()
+    photomol_tools.import_single_file(large, name="large")
+    result = photomol_tools.create_histogram_automatic()
+    assert "Bin width: 12" in result
 
 
 def test_plot_image_export_branches(isolated_tool_log_dir):
-    """Testing image-export branches without invoking Kaleido."""
+    """
+    Verify plot export branches write HTML and image outputs.
+
+    ``FakeFigure`` replaces Plotly figures so the test can exercise the
+    repository's save-path logic without invoking Kaleido or browser rendering.
+    """
     class FakeFigure:
+        """Minimal figure stand-in that records HTML and image export paths."""
+
         def __init__(self):
             self.html_paths = []
             self.image_paths = []

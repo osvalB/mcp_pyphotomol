@@ -57,6 +57,7 @@ optional-dependencies.test = [
   "coverage",
   "pytest",
   "pytest-asyncio",
+  "pytest-cov",
 ]
 # https://docs.pypi.org/project_metadata/#project-urls
 urls.Documentation = "https://github.com/osvalB/mcp_pyphotomol/tree/main/docs"
@@ -147,6 +148,8 @@ python_functions = "test_*"
 xfail_strict = true
 addopts = [
   "--import-mode=importlib", # allow using test files with same name
+  "--cov=mcp_pyphotomol",
+  "--cov-report=term-missing",
 ]
 
 [tool.coverage.run]

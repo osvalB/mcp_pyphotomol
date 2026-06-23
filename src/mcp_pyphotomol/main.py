@@ -27,13 +27,27 @@ def run_app(
     environment: EnvironmentType = EnvironmentType.DEVELOPMENT,
     version: bool = False,
 ):
-    """Run the MCP server "mcp_pyphotomol".
+    """
+    Run the MCP server "mcp_pyphotomol".
 
     Analysis of mass photometry data
     If the environment variable MCP_ENVIRONMENT is set to "PRODUCTION", it will run the Starlette app with streamable HTTP for the MCP server. Otherwise, it will run the MCP server via stdio.
     The port is set via "-p/--port" or the MCP_PORT environment variable, defaulting to "8000" if not set.
     The hostname is set via "-h/--host" or the MCP_HOSTNAME environment variable, defaulting to "0.0.0.0" if not set.
-    To specify to transform method of the MCP server, set "-e/--env" or the MCP_TRANSPORT environment variable, which defaults to "stdio".
+    To specify the transport method of the MCP server, set "-t/--transport" or the MCP_TRANSPORT environment variable, which defaults to "stdio".
+
+    Parameters
+    ----------
+    transport : str
+        MCP transport option. Defaults to ``stdio``.
+    port : int
+        Port used when running an HTTP transport.
+    hostname : str
+        Hostname used when running an HTTP transport.
+    environment : EnvironmentType
+        Runtime environment for the MCP server.
+    version : bool
+        If True, print the package version and exit.
     """
     if version is True:
         from mcp_pyphotomol import __version__
@@ -48,6 +62,10 @@ def run_app(
         logger.info("Starting MCP server (DEVELOPMENT mode)")
         if transport == "http":
             mcp.run(transport=transport, port=port, host=hostname)
+        elif transport == "stdio":
+            from mcp_pyphotomol.stdio import run_stdio
+
+            run_stdio(mcp)
         else:
             mcp.run(transport=transport)
     else:

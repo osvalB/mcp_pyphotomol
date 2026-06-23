@@ -46,10 +46,33 @@ def append_function_call_to_logbook(function_name: str, params: dict) -> None:
 def tool_with_log():
     """
     Decorator that combines @mcp.tool() with automatic logging to the MCP logbook.
+
+    Returns
+    -------
+    Callable
+        Decorator that registers a function as an MCP tool and logs calls.
     """
     def decorator(func):
+        """
+        Wrap a function with call logging before MCP tool registration.
+
+        Parameters
+        ----------
+        func : Callable
+            Function to register as an MCP tool.
+        """
         @wraps(func)
         def wrapper(*args, **kwargs):
+            """
+            Log a tool call and execute the wrapped function.
+
+            Parameters
+            ----------
+            *args : Any
+                Positional arguments for the wrapped function.
+            **kwargs : Any
+                Keyword arguments for the wrapped function.
+            """
             # Get function signature to map args to parameter names
             import inspect
             sig = inspect.signature(func)
@@ -760,7 +783,7 @@ def plot_histograms(colors_hist:  list[str] | str | None = None ,
     if isinstance(colors_hist, str):
         colors_hist = [colors_hist] * len(py_object.models)
 
-    time_str = datetime.now().strftime('%M-%S')
+    time_str = datetime.now().strftime('%H-%M-%S')
     if save_as_html:
 
         fig = pm_plot_histogram(
@@ -876,6 +899,9 @@ def fit_multi_gaussian(
     ----------
     peaks_guess : list[float] | None
         A list of initial guesses for the peaks of the gaussians.
+        If a dictionary is supplied, keys must match experiment names and values
+        must be lists of initial guesses for the peaks of the gaussians for each
+        experiment.
     mean_tolerance : float | None
         The tolerance for the mean of the gaussians.
         If None, defaults will be applied: guess ± abs(guess)/2
@@ -918,7 +944,7 @@ def fit_multi_gaussian(
 
     py_object = MP_CALIBRATOR if calibrator else MP_ANALYZER
 
-    assert isinstance(peaks_guess, (list, type(None)))
+    assert isinstance(peaks_guess, (list, dict, type(None)))
     assert isinstance(mean_tolerance, (int, float, type(None)))
     assert isinstance(std_tolerance, (int, float, type(None)))
     assert isinstance(threshold, (int, float, type(None)))
@@ -926,11 +952,6 @@ def fit_multi_gaussian(
     assert isinstance(min_height, (int, float))
     assert isinstance(min_distance, (int, float))
     assert isinstance(prominence, (int, float))
-
-    assert isinstance(
-        peaks_guess,
-        (list, dict, type(None))
-    )
 
     for model_name in list(py_object.models.keys()):
 
@@ -949,10 +970,11 @@ def fit_multi_gaussian(
         # Determine which peaks to use
         if peaks_guess is None:
 
-            if not hasattr(model, "peaks_guess"):
-                raise ValueError(
-                    f"No peaks available for model {model_name}. "
-                    "Run guess_peaks() first or provide peaks_guess."
+            if not hasattr(model, "peaks_guess") or model.peaks_guess is None:
+                model.guess_peaks(
+                    min_height=min_height,
+                    min_distance=min_distance,
+                    prominence=prominence,
                 )
 
             if model.peaks_guess is None:
@@ -1107,7 +1129,7 @@ def plot_histograms_and_fits(
     if isinstance(colors_hist, str):
         colors_hist = [colors_hist] * len(py_object.models)
 
-    time_str = datetime.now().strftime('%M-%S')
+    time_str = datetime.now().strftime('%H-%M-%S')
 
     if save_as_html:
 
@@ -1226,7 +1248,7 @@ def plot_calibration(save_as_html: bool) -> str:
         A message indicating the success or failure of the plotting process.
     """
 
-    time_str = datetime.now().strftime('%M-%S')
+    time_str = datetime.now().strftime('%H-%M-%S')
 
     fig = pm_plot_calibration(
         mass=MP_CALIBRATOR.known_standards,
