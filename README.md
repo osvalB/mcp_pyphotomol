@@ -25,26 +25,19 @@ Please refer to the [documentation]
 
 ## Installation
 
-You need to have Python 3.12 or newer installed on your system.
+You need to have Python 3.11 or newer installed on your system.
 If you don't have Python installed, we recommend installing [uv][].
 
-There are several alternative options to install mcp_pyphotomol:
+### Run from the command line
 
-### 1. Use `uvx` to run it immediately
-After publication to PyPI:
 ```bash
 uvx mcp_pyphotomol
 ```
 
-Or from a Git repository:
+### Configure an MCP client
 
-```bash
-uvx git+https://github.com/osvalB/mcp_pyphotomol.git@main
-```
-
-### 2. Include it in one of various clients that supports the `mcp.json` standard
-
-If your MCP server is published to PyPI, use the following configuration:
+Add the server to any MCP-compatible client that supports the `mcpServers`
+configuration format:
 
 ```json
 {
@@ -56,20 +49,13 @@ If your MCP server is published to PyPI, use the following configuration:
   }
 }
 ```
-In case the MCP server is not yet published to PyPI, use this configuration:
 
-```json
-{
-  "mcpServers": {
-    "mcp_pyphotomol": {
-      "command": "uvx",
-      "args": ["git+https://github.com/osvalB/mcp_pyphotomol.git@main"]
-    }
-  }
-}
-```
+After updating the configuration, restart the MCP client so it can launch the
+server.
 
-For purely local development (e.g., in Cursor or VS Code), use the following configuration:
+### Local development
+
+To run the server from a local checkout, use an absolute path to the repository:
 
 ```json
 {
@@ -79,7 +65,7 @@ For purely local development (e.g., in Cursor or VS Code), use the following con
       "args": [
         "--refresh",
         "--from",
-        "path/to/repository",
+        "/absolute/path/to/mcp_pyphotomol",
         "mcp_pyphotomol"
       ]
     }
@@ -87,29 +73,23 @@ For purely local development (e.g., in Cursor or VS Code), use the following con
 }
 ```
 
-If you want to reuse and existing environment for local development, use the following configuration:
+If you want to reuse the checkout's existing environment, run it through `uv`:
 
 ```json
 {
   "mcpServers": {
     "mcp_pyphotomol": {
       "command": "uv",
-      "args": ["run", "--directory", "path/to/repository", "mcp_pyphotomol"]
+      "args": ["run", "--directory", "/absolute/path/to/mcp_pyphotomol", "mcp_pyphotomol"]
     }
   }
 }
 ```
 
-### 3. Install it through `pip`:
+### Install with pip
 
 ```bash
 pip install --user mcp_pyphotomol
-```
-
-### 4. Install the latest development version:
-
-```bash
-pip install git+https://github.com/osvalB/mcp_pyphotomol.git@main
 ```
 
 ## Contact
@@ -123,6 +103,6 @@ Osvaldo Burastero,
 [uv]: https://github.com/astral-sh/uv
 [issue tracker]: https://github.com/osvalB/mcp_pyphotomol/issues
 [tests]: https://github.com/osvalB/mcp_pyphotomol/actions/workflows/test.yaml
-[documentation]: https://osvalb.github.io/pyphotomol
+[documentation]: https://osvalb.github.io/mcp_pyphotomol
 [api documentation]: https://github.com/osvalB/mcp_pyphotomol/blob/main/docs/modules.rst
 [pypi]: https://pypi.org/project/mcp_pyphotomol
