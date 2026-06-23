@@ -13,7 +13,8 @@
 [badge-tests]: https://img.shields.io/github/actions/workflow/status/osvalB/mcp_pyphotomol/test.yaml?branch=main
 [badge-docs]: https://img.shields.io/badge/docs-Sphinx-0a507a
 
-Analysis of mass photometry data
+This repository contains an MCP server for the analysis of mass photometry data.
+It is based on the Python package [pyphotomol](https://github.com/osvalB/pyphotomol).
 
 ## Video demonstration
 
@@ -92,13 +93,35 @@ If you want to reuse the checkout's existing environment, run it through `uv`:
 pip install --user mcp_pyphotomol
 ```
 
+Then run the server with:
+
+```bash
+mcp_pyphotomol
+```
+
+If your shell cannot find the command, make sure your user-level Python scripts
+directory is on `PATH`.
+
 ## Contact
 
 If you found a bug, please use the [issue tracker][].
 
 ## Citation
 
-Osvaldo Burastero,
+If you use `mcp_pyphotomol`, please cite it as:
+
+Burastero, O. (2026). `mcp_pyphotomol` (Version 0.1.0) [Computer software].
+GitHub. https://github.com/osvalB/mcp_pyphotomol
+
+```bibtex
+@software{burastero_2026_mcp_pyphotomol,
+  author = {Burastero, Osvaldo},
+  title = {mcp_pyphotomol},
+  version = {0.1.0},
+  year = {2026},
+  url = {https://github.com/osvalB/mcp_pyphotomol}
+}
+```
 
 [uv]: https://github.com/astral-sh/uv
 [issue tracker]: https://github.com/osvalB/mcp_pyphotomol/issues
