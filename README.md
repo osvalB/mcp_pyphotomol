@@ -13,7 +13,7 @@
 [badge-tests]: https://img.shields.io/github/actions/workflow/status/osvalB/mcp_pyphotomol/test.yaml?branch=main
 [badge-docs]: https://img.shields.io/badge/docs-Sphinx-0a507a
 
-This repository contains an MCP server for the analysis of mass photometry data.
+This repository contains a local MCP server for the analysis of mass photometry data.
 It is based on the Python package [pyphotomol](https://github.com/osvalB/pyphotomol).
 
 ## Video demonstration
