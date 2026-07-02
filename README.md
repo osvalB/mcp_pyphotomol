@@ -1,6 +1,3 @@
-# This package is being developed and breaking changes may occur 
-
-
 # mcp_pyphotomol
 
 <!--
